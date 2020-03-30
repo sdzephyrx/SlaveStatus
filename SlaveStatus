@@ -1,0 +1,53 @@
+using MySql.Data.MySqlClient;
+using System;
+using System.Data;
+using System.Net;
+using Telegram.Bot;
+using Telegram.Bot.Types.Enums;
+
+namespace SlaveStatusCheck
+{
+    class Program
+    {
+     static async System.Threading.Tasks.Task SlaveStatusAsync()
+        {
+            var conn = "Server={ };Port={ };Database={ };Uid={ };Pwd={ }";
+            MySqlConnection connect = new MySqlConnection(conn);
+            var telegramBot = new TelegramBotClient("{token}");
+            var chatbotid = "{chat_id}";
+            try
+            {
+                connect.Open();
+                string query = "SHOW SLAVE STATUS";
+                MySqlCommand cmd = new MySqlCommand(query, connect);
+                MySqlDataReader result = cmd.ExecuteReader();
+
+                Console.WriteLine("MASTER\t\tIO_STATE\t\t\t\tIO_RUNNING\tIO_SQL");
+                while (result.Read())
+                {
+                    Console.WriteLine(result[1] +"\t"+ result[0] +"\t"+ result[10] +"\t\t"+ result[11]);
+                    if (result[10].ToString() != "Yes" || result[11].ToString() != "Yes")
+                        await telegramBot.SendTextMessageAsync(chatId: chatbotid, text: "MASTER: "+result[1] +"\nIO_STATE: "+ result[0] +"\nIO_RUNNING :"+ result[10] +"\nIO_SQL: "+ result[11], parseMode: ParseMode.Html);
+                }
+                result.Close();
+            }catch(Exception ex)
+            {
+                Console.WriteLine("ERROR: " + ex.Message + " !");
+            }
+            finally
+            {
+                if (connect.State == ConnectionState.Open)
+                    connect.Close();
+            }
+        }
+        static async System.Threading.Tasks.Task Main(string[] args)
+        {
+            ServicePointManager.Expect100Continue = true;
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            await SlaveStatusAsync();
+        }
+    }
+}
+
+
+
